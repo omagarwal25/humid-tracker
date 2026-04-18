@@ -98,6 +98,17 @@ app.get('*', (_req: Request, res: Response) => {
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
+async function backfillOutdoorWeather() {
+  const outdoor = await fetchOutdoorWeather();
+  if (!outdoor) return;
+  const { count } = await prisma.reading.updateMany({
+    where: { outdoorHumidity: null },
+    data: { outdoorHumidity: outdoor.humidity, outdoorTemperature: outdoor.temperature },
+  });
+  if (count > 0) console.log(`Backfilled outdoor weather for ${count} readings`);
+}
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  backfillOutdoorWeather();
 });
