@@ -7,6 +7,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
   ResponsiveContainer,
 } from 'recharts'
 import './App.css'
@@ -176,6 +177,24 @@ export default function App() {
                 dot={false}
                 name="Temperature (°C)"
               />
+              {outdoor && (
+                <ReferenceLine
+                  y={outdoor.humidity}
+                  stroke="#4f9cf9"
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.5}
+                  label={{ value: `Outdoor ${outdoor.humidity.toFixed(0)}%`, fill: '#4f9cf9', fontSize: 11, opacity: 0.7 }}
+                />
+              )}
+              {outdoor && (
+                <ReferenceLine
+                  y={outdoor.temperature}
+                  stroke="#f97b4f"
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.5}
+                  label={{ value: `Outdoor ${outdoor.temperature.toFixed(1)}°C`, fill: '#f97b4f', fontSize: 11, opacity: 0.7 }}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         ) : (
