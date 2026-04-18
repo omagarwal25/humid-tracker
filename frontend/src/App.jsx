@@ -7,7 +7,6 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ReferenceLine,
   ResponsiveContainer,
 } from 'recharts'
 import './App.css'
@@ -67,6 +66,8 @@ export default function App() {
       time: formatHHMM(r.createdAt),
       humidity: parseFloat(r.humidity.toFixed(2)),
       temperature: parseFloat(r.temperature.toFixed(2)),
+      ...(r.outdoorHumidity != null && { outdoorHumidity: parseFloat(r.outdoorHumidity.toFixed(2)) }),
+      ...(r.outdoorTemperature != null && { outdoorTemperature: parseFloat(r.outdoorTemperature.toFixed(2)) }),
     }))
 
   return (
@@ -177,24 +178,26 @@ export default function App() {
                 dot={false}
                 name="Temperature (°C)"
               />
-              {outdoor && (
-                <ReferenceLine
-                  y={outdoor.humidity}
-                  stroke="#4f9cf9"
-                  strokeDasharray="4 4"
-                  strokeOpacity={0.5}
-                  label={{ value: `Outdoor ${outdoor.humidity.toFixed(0)}%`, fill: '#4f9cf9', fontSize: 11, opacity: 0.7 }}
-                />
-              )}
-              {outdoor && (
-                <ReferenceLine
-                  y={outdoor.temperature}
-                  stroke="#f97b4f"
-                  strokeDasharray="4 4"
-                  strokeOpacity={0.5}
-                  label={{ value: `Outdoor ${outdoor.temperature.toFixed(1)}°C`, fill: '#f97b4f', fontSize: 11, opacity: 0.7 }}
-                />
-              )}
+              <Line
+                type="monotone"
+                dataKey="outdoorHumidity"
+                stroke="#4f9cf9"
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                dot={false}
+                name="Outdoor Humidity (%)"
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="outdoorTemperature"
+                stroke="#f97b4f"
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                dot={false}
+                name="Outdoor Temp (°C)"
+                connectNulls
+              />
             </LineChart>
           </ResponsiveContainer>
         ) : (

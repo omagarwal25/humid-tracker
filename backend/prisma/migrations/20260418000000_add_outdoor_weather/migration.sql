@@ -1,0 +1,2 @@
+ALTER TABLE "Reading" ADD COLUMN "outdoorTemperature" DOUBLE PRECISION;
+ALTER TABLE "Reading" ADD COLUMN "outdoorHumidity" DOUBLE PRECISION;

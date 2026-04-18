@@ -10,11 +10,31 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+async function fetchOutdoorWeather(): Promise<{ temperature: number; humidity: number } | null> {
+  const { WEATHER_API_KEY, WEATHER_LAT, WEATHER_LON } = process.env;
+  if (!WEATHER_API_KEY || !WEATHER_LAT || !WEATHER_LON) return null;
+  try {
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${WEATHER_LAT}&lon=${WEATHER_LON}&appid=${WEATHER_API_KEY}&units=metric`;
+    const response = await fetch(url);
+    const data = await response.json() as { main: { humidity: number; temp: number } };
+    return { temperature: data.main.temp, humidity: data.main.humidity };
+  } catch {
+    return null;
+  }
+}
+
 app.post('/api/readings', async (req: Request, res: Response) => {
   const { mac, temperature, humidity } = req.body;
   try {
+    const outdoor = await fetchOutdoorWeather();
     const reading = await prisma.reading.create({
-      data: { mac, temperature, humidity },
+      data: {
+        mac,
+        temperature,
+        humidity,
+        outdoorTemperature: outdoor?.temperature ?? null,
+        outdoorHumidity: outdoor?.humidity ?? null,
+      },
     });
     res.status(201).json(reading);
   } catch (err) {
@@ -63,20 +83,12 @@ app.get('/api/readings', async (req: Request, res: Response) => {
 });
 
 app.get('/api/weather', async (_req: Request, res: Response) => {
-  const { WEATHER_API_KEY, WEATHER_LAT, WEATHER_LON } = process.env;
-  if (!WEATHER_API_KEY || !WEATHER_LAT || !WEATHER_LON) {
+  const outdoor = await fetchOutdoorWeather();
+  if (!outdoor) {
     res.status(503).json({ error: 'Weather not configured' });
     return;
   }
-  try {
-    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${WEATHER_LAT}&lon=${WEATHER_LON}&appid=${WEATHER_API_KEY}&units=metric`;
-    const response = await fetch(url);
-    const data = await response.json() as { main: { humidity: number; temp: number } };
-    res.json({ humidity: data.main.humidity, temperature: data.main.temp });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch weather' });
-  }
+  res.json(outdoor);
 });
 
 // Serve frontend static files
