@@ -69,6 +69,11 @@ body {
   min-width: 130px;
 }
 
+.stat-card--outdoor {
+  border-color: #2a4a3a;
+  background-color: #0f2a1e;
+}
+
 .stat-label {
   font-size: 0.72rem;
   text-transform: uppercase;

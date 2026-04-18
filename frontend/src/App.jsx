@@ -23,14 +23,16 @@ function formatHHMM(dateStr) {
 export default function App() {
   const [readings, setReadings] = useState([])
   const [stats, setStats] = useState(null)
+  const [outdoor, setOutdoor] = useState(null)
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
 
   async function fetchData() {
     try {
-      const [readingsRes, statsRes] = await Promise.all([
+      const [readingsRes, statsRes, weatherRes] = await Promise.all([
         fetch(`${API_BASE}/api/readings?limit=500`),
         fetch(`${API_BASE}/api/readings/stats`),
+        fetch(`${API_BASE}/api/weather`),
       ])
 
       if (!readingsRes.ok || !statsRes.ok) {
@@ -42,6 +44,7 @@ export default function App() {
 
       setReadings(readingsData)
       setStats(statsData)
+      if (weatherRes.ok) setOutdoor(await weatherRes.json())
       setError(null)
       setLastUpdated(new Date())
     } catch (err) {
@@ -119,6 +122,18 @@ export default function App() {
             {stats ? `${stats.temperature.avg.toFixed(2)}°C` : '—'}
           </div>
         </div>
+        {outdoor && (
+          <>
+            <div className="stat-card stat-card--outdoor">
+              <div className="stat-label">Outdoor Humidity</div>
+              <div className="stat-value">{outdoor.humidity.toFixed(0)}%</div>
+            </div>
+            <div className="stat-card stat-card--outdoor">
+              <div className="stat-label">Outdoor Temp</div>
+              <div className="stat-value">{outdoor.temperature.toFixed(1)}°C</div>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="chart-section">

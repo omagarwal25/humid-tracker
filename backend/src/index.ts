@@ -62,6 +62,23 @@ app.get('/api/readings', async (req: Request, res: Response) => {
   }
 });
 
+app.get('/api/weather', async (_req: Request, res: Response) => {
+  const { WEATHER_API_KEY, WEATHER_LAT, WEATHER_LON } = process.env;
+  if (!WEATHER_API_KEY || !WEATHER_LAT || !WEATHER_LON) {
+    res.status(503).json({ error: 'Weather not configured' });
+    return;
+  }
+  try {
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${WEATHER_LAT}&lon=${WEATHER_LON}&appid=${WEATHER_API_KEY}&units=metric`;
+    const response = await fetch(url);
+    const data = await response.json() as { main: { humidity: number; temp: number } };
+    res.json({ humidity: data.main.humidity, temperature: data.main.temp });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch weather' });
+  }
+});
+
 // Serve frontend static files
 const frontendDist = path.join(__dirname, '../../frontend/dist');
 app.use(express.static(frontendDist));
