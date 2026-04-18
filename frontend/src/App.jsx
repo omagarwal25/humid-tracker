@@ -11,7 +11,7 @@ import {
 } from 'recharts'
 import './App.css'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const API_BASE = import.meta.env.VITE_API_URL || ''
 
 function formatHHMM(dateStr) {
   const d = new Date(dateStr)
@@ -29,8 +29,8 @@ export default function App() {
   async function fetchData() {
     try {
       const [readingsRes, statsRes] = await Promise.all([
-        fetch(`${API_URL}/readings?limit=500`),
-        fetch(`${API_URL}/readings/stats`),
+        fetch(`${API_BASE}/api/readings?limit=500`),
+        fetch(`${API_BASE}/api/readings/stats`),
       ])
 
       if (!readingsRes.ok || !statsRes.ok) {

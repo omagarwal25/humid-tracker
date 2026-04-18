@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import path from 'path';
 import { PrismaClient } from '@prisma/client';
 
 const app = express();
@@ -9,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-app.post('/readings', async (req: Request, res: Response) => {
+app.post('/api/readings', async (req: Request, res: Response) => {
   const { mac, temperature, humidity } = req.body;
   try {
     const reading = await prisma.reading.create({
@@ -22,7 +23,7 @@ app.post('/readings', async (req: Request, res: Response) => {
   }
 });
 
-app.get('/readings/stats', async (_req: Request, res: Response) => {
+app.get('/api/readings/stats', async (_req: Request, res: Response) => {
   try {
     const stats = await prisma.reading.aggregate({
       _min: { temperature: true, humidity: true },
@@ -47,7 +48,7 @@ app.get('/readings/stats', async (_req: Request, res: Response) => {
   }
 });
 
-app.get('/readings', async (req: Request, res: Response) => {
+app.get('/api/readings', async (req: Request, res: Response) => {
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 500;
   try {
     const readings = await prisma.reading.findMany({
@@ -59,6 +60,13 @@ app.get('/readings', async (req: Request, res: Response) => {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch readings' });
   }
+});
+
+// Serve frontend static files
+const frontendDist = path.join(__dirname, '../../frontend/dist');
+app.use(express.static(frontendDist));
+app.get('*', (_req: Request, res: Response) => {
+  res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
 app.listen(PORT, () => {

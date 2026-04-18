@@ -6,6 +6,7 @@
 
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <Wire.h>
 
 #define SHT3X_ADDR 0x44
@@ -91,7 +92,8 @@ void loop() {
       connectWiFi();
     }
 
-    WiFiClient client;
+    WiFiClientSecure client;
+    client.setInsecure(); // skip cert verification, fine for private use
     HTTPClient http;
     http.begin(client, SERVER_URL);
     http.addHeader("Content-Type", "application/json");
