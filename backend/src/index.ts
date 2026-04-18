@@ -12,15 +12,22 @@ app.use(express.json());
 
 async function fetchOutdoorWeather(): Promise<{ temperature: number; humidity: number } | null> {
   const { WEATHER_API_KEY, WEATHER_LAT, WEATHER_LON } = process.env;
-  if (!WEATHER_API_KEY || !WEATHER_LAT || !WEATHER_LON) return null;
-  try {
-    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${WEATHER_LAT}&lon=${WEATHER_LON}&appid=${WEATHER_API_KEY}&units=metric`;
-    const response = await fetch(url);
-    const data = await response.json() as { main: { humidity: number; temp: number } };
-    return { temperature: data.main.temp, humidity: data.main.humidity };
-  } catch {
+  if (!WEATHER_API_KEY || !WEATHER_LAT || !WEATHER_LON) {
+    console.warn('Weather not configured: missing WEATHER_API_KEY, WEATHER_LAT, or WEATHER_LON');
     return null;
   }
+  const url = `https://api.openweathermap.org/data/2.5/weather?lat=${WEATHER_LAT}&lon=${WEATHER_LON}&appid=${WEATHER_API_KEY}&units=metric`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    console.error(`OpenWeatherMap error: ${response.status} ${response.statusText}`);
+    return null;
+  }
+  const data = await response.json() as { main?: { humidity: number; temp: number } };
+  if (!data.main) {
+    console.error('OpenWeatherMap unexpected response:', JSON.stringify(data));
+    return null;
+  }
+  return { temperature: data.main.temp, humidity: data.main.humidity };
 }
 
 app.post('/api/readings', async (req: Request, res: Response) => {
@@ -99,13 +106,23 @@ app.get('*', (_req: Request, res: Response) => {
 });
 
 async function backfillOutdoorWeather() {
+  console.log('Checking for readings to backfill...');
+  const nullCount = await prisma.reading.count({ where: { outdoorHumidity: null } });
+  if (nullCount === 0) {
+    console.log('No readings need backfilling');
+    return;
+  }
+  console.log(`Found ${nullCount} readings without outdoor data, fetching weather...`);
   const outdoor = await fetchOutdoorWeather();
-  if (!outdoor) return;
+  if (!outdoor) {
+    console.error('Backfill aborted: could not fetch outdoor weather');
+    return;
+  }
   const { count } = await prisma.reading.updateMany({
     where: { outdoorHumidity: null },
     data: { outdoorHumidity: outdoor.humidity, outdoorTemperature: outdoor.temperature },
   });
-  if (count > 0) console.log(`Backfilled outdoor weather for ${count} readings`);
+  console.log(`Backfilled outdoor weather for ${count} readings`);
 }
 
 app.listen(PORT, () => {
