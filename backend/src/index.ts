@@ -1,6 +1,6 @@
-const express = require('express');
-const cors = require('cors');
-const { PrismaClient } = require('@prisma/client');
+import express, { Request, Response } from 'express';
+import cors from 'cors';
+import { PrismaClient } from '@prisma/client';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -9,8 +9,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// POST /readings — store a new reading
-app.post('/readings', async (req, res) => {
+app.post('/readings', async (req: Request, res: Response) => {
   const { mac, temperature, humidity } = req.body;
   try {
     const reading = await prisma.reading.create({
@@ -23,8 +22,7 @@ app.post('/readings', async (req, res) => {
   }
 });
 
-// GET /readings/stats — aggregate min/max/avg for humidity and temperature
-app.get('/readings/stats', async (req, res) => {
+app.get('/readings/stats', async (_req: Request, res: Response) => {
   try {
     const stats = await prisma.reading.aggregate({
       _min: { temperature: true, humidity: true },
@@ -49,9 +47,8 @@ app.get('/readings/stats', async (req, res) => {
   }
 });
 
-// GET /readings — return all readings, newest first, optional ?limit=N
-app.get('/readings', async (req, res) => {
-  const limit = req.query.limit ? parseInt(req.query.limit, 10) : 500;
+app.get('/readings', async (req: Request, res: Response) => {
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 500;
   try {
     const readings = await prisma.reading.findMany({
       orderBy: { createdAt: 'desc' },
