@@ -8,8 +8,11 @@ build/
 **/dist/
 **/build/
 
-# Lockfiles (keep one, ignore the others)
-# package-lock.json  # uncomment to ignore
+# Lockfiles — using pnpm, ignore npm/yarn lockfiles
+package-lock.json
+**/package-lock.json
+yarn.lock
+**/yarn.lock
 
 # Environment variables
 .env
