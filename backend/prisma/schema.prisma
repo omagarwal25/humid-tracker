@@ -8,11 +8,11 @@ datasource db {
 }
 
 model Reading {
-  id                  Int      @id @default(autoincrement())
-  mac                 String
-  temperature         Float
-  humidity            Float
-  outdoorTemperature  Float?
-  outdoorHumidity     Float?
-  createdAt           DateTime @default(now())
+  id                 Int      @id @default(autoincrement())
+  mac                String
+  temperature        Float
+  humidity           Float
+  outdoorTemperature Float?
+  outdoorHumidity    Float?
+  createdAt          DateTime @default(now())
 }

@@ -13,11 +13,35 @@ import './App.css'
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
-function formatHHMM(dateStr) {
+const WINDOWS = [
+  { label: '1h',  ms: 60 * 60 * 1000 },
+  { label: '6h',  ms: 6 * 60 * 60 * 1000 },
+  { label: '24h', ms: 24 * 60 * 60 * 1000 },
+  { label: '7d',  ms: 7 * 24 * 60 * 60 * 1000 },
+  { label: 'All', ms: null },
+]
+
+function formatTime(dateStr, windowMs) {
   const d = new Date(dateStr)
-  const h = String(d.getHours()).padStart(2, '0')
-  const m = String(d.getMinutes()).padStart(2, '0')
-  return `${h}:${m}`
+  if (windowMs === null || windowMs > 24 * 60 * 60 * 1000) {
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function StatCard({ label, value, outdoor = false }) {
+  return (
+    <div
+      className={`flex-1 min-w-[130px] rounded-xl p-4 border ${
+        outdoor
+          ? 'bg-[#0f2a1e] border-[#2a4a3a]'
+          : 'bg-[#16213e] border-[#2a2a4a]'
+      }`}
+    >
+      <div className="text-[0.72rem] uppercase tracking-widest text-[#6060a0] mb-2">{label}</div>
+      <div className="text-xl font-semibold text-white whitespace-nowrap">{value}</div>
+    </div>
+  )
 }
 
 export default function App() {
@@ -26,6 +50,7 @@ export default function App() {
   const [outdoor, setOutdoor] = useState(null)
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
+  const [activeWindow, setActiveWindow] = useState('24h')
 
   async function fetchData() {
     try {
@@ -60,98 +85,90 @@ export default function App() {
 
   const latest = readings[0] || null
 
-  const chartData = [...readings]
-    .reverse()
-    .map((r) => ({
-      time: formatHHMM(r.createdAt),
-      humidity: parseFloat(r.humidity.toFixed(2)),
-      temperature: parseFloat(r.temperature.toFixed(2)),
-      ...(r.outdoorHumidity != null && { outdoorHumidity: parseFloat(r.outdoorHumidity.toFixed(2)) }),
-      ...(r.outdoorTemperature != null && { outdoorTemperature: parseFloat(r.outdoorTemperature.toFixed(2)) }),
-    }))
+  const windowMs = WINDOWS.find((w) => w.label === activeWindow)?.ms ?? null
+  const windowedReadings = windowMs
+    ? readings.filter((r) => Date.now() - new Date(r.createdAt).getTime() <= windowMs)
+    : readings
+
+  const chartData = [...windowedReadings].reverse().map((r) => ({
+    time: formatTime(r.createdAt, windowMs),
+    humidity: parseFloat(r.humidity.toFixed(2)),
+    temperature: parseFloat(r.temperature.toFixed(2)),
+    ...(r.outdoorHumidity != null && { outdoorHumidity: parseFloat(r.outdoorHumidity.toFixed(2)) }),
+    ...(r.outdoorTemperature != null && { outdoorTemperature: parseFloat(r.outdoorTemperature.toFixed(2)) }),
+  }))
 
   return (
-    <div className="app">
-      <header className="header">
-        <h1>Humidity Monitor</h1>
+    <div className="max-w-[1200px] mx-auto py-6 px-4">
+      {/* Header */}
+      <header className="flex items-baseline gap-4 mb-7 flex-wrap">
+        <h1 className="text-[1.75rem] font-bold text-white tracking-tight">Humidity Monitor</h1>
         {lastUpdated && (
-          <span className="last-updated">
-            Last updated: {lastUpdated.toLocaleTimeString()}
-          </span>
+          <span className="text-xs text-[#6060a0]">Last updated: {lastUpdated.toLocaleTimeString()}</span>
         )}
       </header>
 
-      {error && <div className="error-banner">Error: {error}</div>}
+      {error && (
+        <div className="bg-[#3a1a2a] border border-[#8b3a52] text-[#f08090] rounded-lg px-4 py-3 mb-5 text-sm">
+          Error: {error}
+        </div>
+      )}
 
-      <section className="stats-bar">
-        <div className="stat-card">
-          <div className="stat-label">Current Humidity</div>
-          <div className="stat-value">
-            {latest ? `${latest.humidity.toFixed(2)}%` : '—'}
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Current Temp</div>
-          <div className="stat-value">
-            {latest ? `${latest.temperature.toFixed(2)}°C` : '—'}
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Humidity Min / Max</div>
-          <div className="stat-value">
-            {stats
-              ? `${stats.humidity.min.toFixed(2)}% / ${stats.humidity.max.toFixed(2)}%`
-              : '—'}
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Humidity Avg</div>
-          <div className="stat-value">
-            {stats ? `${stats.humidity.avg.toFixed(2)}%` : '—'}
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Temp Min / Max</div>
-          <div className="stat-value">
-            {stats
-              ? `${stats.temperature.min.toFixed(2)}°C / ${stats.temperature.max.toFixed(2)}°C`
-              : '—'}
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Temp Avg</div>
-          <div className="stat-value">
-            {stats ? `${stats.temperature.avg.toFixed(2)}°C` : '—'}
-          </div>
-        </div>
+      {/* Stats */}
+      <section className="flex flex-wrap gap-3 mb-8">
+        <StatCard label="Current Humidity" value={latest ? `${latest.humidity.toFixed(2)}%` : '—'} />
+        <StatCard label="Current Temp" value={latest ? `${latest.temperature.toFixed(2)}°C` : '—'} />
+        <StatCard
+          label="Humidity Min / Max"
+          value={stats ? `${stats.humidity.min.toFixed(2)}% / ${stats.humidity.max.toFixed(2)}%` : '—'}
+        />
+        <StatCard
+          label="Humidity Avg"
+          value={stats ? `${stats.humidity.avg.toFixed(2)}%` : '—'}
+        />
+        <StatCard
+          label="Temp Min / Max"
+          value={stats ? `${stats.temperature.min.toFixed(2)}°C / ${stats.temperature.max.toFixed(2)}°C` : '—'}
+        />
+        <StatCard
+          label="Temp Avg"
+          value={stats ? `${stats.temperature.avg.toFixed(2)}°C` : '—'}
+        />
         {outdoor && (
           <>
-            <div className="stat-card stat-card--outdoor">
-              <div className="stat-label">Outdoor Humidity</div>
-              <div className="stat-value">{outdoor.humidity.toFixed(0)}%</div>
-            </div>
-            <div className="stat-card stat-card--outdoor">
-              <div className="stat-label">Outdoor Temp</div>
-              <div className="stat-value">{outdoor.temperature.toFixed(1)}°C</div>
-            </div>
+            <StatCard label="Outdoor Humidity" value={`${outdoor.humidity.toFixed(0)}%`} outdoor />
+            <StatCard label="Outdoor Temp" value={`${outdoor.temperature.toFixed(1)}°C`} outdoor />
           </>
         )}
       </section>
 
-      <section className="chart-section">
-        <h2>Readings Over Time</h2>
+      {/* Chart */}
+      <section className="bg-[#16213e] border border-[#2a2a4a] rounded-xl p-5 mb-8">
+        <div className="flex items-center justify-between flex-wrap gap-2.5 mb-4">
+          <h2 className="text-sm font-semibold text-[#c0c0e0] uppercase tracking-wider">
+            Readings Over Time
+          </h2>
+          <div className="flex gap-1">
+            {WINDOWS.map((w) => (
+              <button
+                key={w.label}
+                onClick={() => setActiveWindow(w.label)}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold tracking-wider border transition-colors cursor-pointer ${
+                  activeWindow === w.label
+                    ? 'bg-[#4f9cf9] border-[#4f9cf9] text-white'
+                    : 'bg-transparent border-[#2a2a4a] text-[#6060a0] hover:border-[#4f9cf9] hover:text-[#c0c0e0]'
+                }`}
+              >
+                {w.label}
+              </button>
+            ))}
+          </div>
+        </div>
         {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart
-              data={chartData}
-              margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-            >
+            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#2a2a4a" />
-              <XAxis
-                dataKey="time"
-                tick={{ fill: '#a0a0c0', fontSize: 12 }}
-                interval="preserveStartEnd"
-              />
+              <XAxis dataKey="time" tick={{ fill: '#a0a0c0', fontSize: 12 }} interval="preserveStartEnd" />
               <YAxis tick={{ fill: '#a0a0c0', fontSize: 12 }} />
               <Tooltip
                 contentStyle={{
@@ -162,76 +179,59 @@ export default function App() {
                 }}
               />
               <Legend wrapperStyle={{ color: '#a0a0c0' }} />
-              <Line
-                type="monotone"
-                dataKey="humidity"
-                stroke="#4f9cf9"
-                strokeWidth={2}
-                dot={false}
-                name="Humidity (%)"
-              />
-              <Line
-                type="monotone"
-                dataKey="temperature"
-                stroke="#f97b4f"
-                strokeWidth={2}
-                dot={false}
-                name="Temperature (°C)"
-              />
-              <Line
-                type="monotone"
-                dataKey="outdoorHumidity"
-                stroke="#4f9cf9"
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                dot={false}
-                name="Outdoor Humidity (%)"
-                connectNulls
-              />
-              <Line
-                type="monotone"
-                dataKey="outdoorTemperature"
-                stroke="#f97b4f"
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                dot={false}
-                name="Outdoor Temp (°C)"
-                connectNulls
-              />
+              <Line type="monotone" dataKey="humidity" stroke="#4f9cf9" strokeWidth={2} dot={false} name="Humidity (%)" />
+              <Line type="monotone" dataKey="temperature" stroke="#f97b4f" strokeWidth={2} dot={false} name="Temperature (°C)" />
+              <Line type="monotone" dataKey="outdoorHumidity" stroke="#4f9cf9" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Outdoor Humidity (%)" connectNulls />
+              <Line type="monotone" dataKey="outdoorTemperature" stroke="#f97b4f" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Outdoor Temp (°C)" connectNulls />
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <div className="no-data">No readings available yet.</div>
+          <div className="text-center text-[#505080] py-10 text-sm">No readings available yet.</div>
         )}
       </section>
 
-      <section className="table-section">
-        <h2>All Readings</h2>
-        {readings.length > 0 ? (
-          <div className="table-wrapper">
-            <table>
+      {/* Table */}
+      <section className="bg-[#16213e] border border-[#2a2a4a] rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-[#c0c0e0] uppercase tracking-wider mb-4">
+          Readings — {activeWindow !== 'All' ? `Last ${activeWindow}` : 'All'}
+        </h2>
+        {windowedReadings.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
               <thead>
                 <tr>
-                  <th>MAC Address</th>
-                  <th>Temperature</th>
-                  <th>Humidity</th>
-                  <th>Timestamp</th>
+                  {['MAC Address', 'Temperature', 'Humidity', 'Timestamp'].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left px-3.5 py-2.5 text-[#6060a0] font-semibold uppercase text-[0.72rem] tracking-widest border-b border-[#2a2a4a] whitespace-nowrap"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {readings.map((r) => (
-                  <tr key={r.id}>
-                    <td className="mono">{r.mac}</td>
-                    <td>{r.temperature.toFixed(2)}°C</td>
-                    <td>{r.humidity.toFixed(2)}%</td>
-                    <td>{new Date(r.createdAt).toLocaleString()}</td>
+                {windowedReadings.map((r) => (
+                  <tr key={r.id} className="odd:bg-[#1e1e3a] even:bg-[#16213e] hover:bg-[#252550]">
+                    <td className="px-3.5 py-2.5 border-b border-[#1e1e38] whitespace-nowrap font-mono text-xs text-[#8080b0]">
+                      {r.mac}
+                    </td>
+                    <td className="px-3.5 py-2.5 border-b border-[#1e1e38] whitespace-nowrap text-[#c0c0e0]">
+                      {r.temperature.toFixed(2)}°C
+                    </td>
+                    <td className="px-3.5 py-2.5 border-b border-[#1e1e38] whitespace-nowrap text-[#c0c0e0]">
+                      {r.humidity.toFixed(2)}%
+                    </td>
+                    <td className="px-3.5 py-2.5 border-b border-[#1e1e38] whitespace-nowrap text-[#c0c0e0]">
+                      {new Date(r.createdAt).toLocaleString()}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <div className="no-data">No readings to display.</div>
+          <div className="text-center text-[#505080] py-10 text-sm">No readings in this window.</div>
         )}
       </section>
     </div>
