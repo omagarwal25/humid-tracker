@@ -29,6 +29,14 @@ function formatTime(dateStr, windowMs) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+function toF(c) {
+  return c * 9 / 5 + 32
+}
+
+function fmtTemp(c, useFahrenheit) {
+  return useFahrenheit ? `${toF(c).toFixed(2)}°F` : `${c.toFixed(2)}°C`
+}
+
 function StatCard({ label, value, outdoor = false }) {
   return (
     <div
@@ -51,6 +59,7 @@ export default function App() {
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [activeWindow, setActiveWindow] = useState('24h')
+  const [useFahrenheit, setUseFahrenheit] = useState(false)
 
   async function fetchData() {
     try {
@@ -90,22 +99,31 @@ export default function App() {
     ? readings.filter((r) => Date.now() - new Date(r.createdAt).getTime() <= windowMs)
     : readings
 
+  const cvtTemp = (c) => useFahrenheit ? parseFloat(toF(c).toFixed(2)) : parseFloat(c.toFixed(2))
+  const tempUnit = useFahrenheit ? '°F' : '°C'
+
   const chartData = [...windowedReadings].reverse().map((r) => ({
     time: formatTime(r.createdAt, windowMs),
     humidity: parseFloat(r.humidity.toFixed(2)),
-    temperature: parseFloat(r.temperature.toFixed(2)),
+    temperature: cvtTemp(r.temperature),
     ...(r.outdoorHumidity != null && { outdoorHumidity: parseFloat(r.outdoorHumidity.toFixed(2)) }),
-    ...(r.outdoorTemperature != null && { outdoorTemperature: parseFloat(r.outdoorTemperature.toFixed(2)) }),
+    ...(r.outdoorTemperature != null && { outdoorTemperature: cvtTemp(r.outdoorTemperature) }),
   }))
 
   return (
     <div className="max-w-[1200px] mx-auto py-6 px-4">
       {/* Header */}
-      <header className="flex items-baseline gap-4 mb-7 flex-wrap">
+      <header className="flex items-center gap-4 mb-7 flex-wrap">
         <h1 className="text-[1.75rem] font-bold text-white tracking-tight">Humidity Monitor</h1>
         {lastUpdated && (
           <span className="text-xs text-[#6060a0]">Last updated: {lastUpdated.toLocaleTimeString()}</span>
         )}
+        <button
+          onClick={() => setUseFahrenheit((f) => !f)}
+          className="ml-auto px-2.5 py-1 rounded-md text-xs font-semibold tracking-wider border border-[#2a2a4a] text-[#6060a0] hover:border-[#4f9cf9] hover:text-[#c0c0e0] transition-colors cursor-pointer"
+        >
+          {useFahrenheit ? '°C' : '°F'}
+        </button>
       </header>
 
       {error && (
@@ -117,7 +135,7 @@ export default function App() {
       {/* Stats */}
       <section className="flex flex-wrap gap-3 mb-8">
         <StatCard label="Current Humidity" value={latest ? `${latest.humidity.toFixed(2)}%` : '—'} />
-        <StatCard label="Current Temp" value={latest ? `${latest.temperature.toFixed(2)}°C` : '—'} />
+        <StatCard label="Current Temp" value={latest ? fmtTemp(latest.temperature, useFahrenheit) : '—'} />
         <StatCard
           label="Humidity Min / Max"
           value={stats ? `${stats.humidity.min.toFixed(2)}% / ${stats.humidity.max.toFixed(2)}%` : '—'}
@@ -128,16 +146,16 @@ export default function App() {
         />
         <StatCard
           label="Temp Min / Max"
-          value={stats ? `${stats.temperature.min.toFixed(2)}°C / ${stats.temperature.max.toFixed(2)}°C` : '—'}
+          value={stats ? `${fmtTemp(stats.temperature.min, useFahrenheit)} / ${fmtTemp(stats.temperature.max, useFahrenheit)}` : '—'}
         />
         <StatCard
           label="Temp Avg"
-          value={stats ? `${stats.temperature.avg.toFixed(2)}°C` : '—'}
+          value={stats ? fmtTemp(stats.temperature.avg, useFahrenheit) : '—'}
         />
         {outdoor && (
           <>
             <StatCard label="Outdoor Humidity" value={`${outdoor.humidity.toFixed(0)}%`} outdoor />
-            <StatCard label="Outdoor Temp" value={`${outdoor.temperature.toFixed(1)}°C`} outdoor />
+            <StatCard label="Outdoor Temp" value={fmtTemp(outdoor.temperature, useFahrenheit)} outdoor />
           </>
         )}
       </section>
@@ -180,9 +198,9 @@ export default function App() {
               />
               <Legend wrapperStyle={{ color: '#a0a0c0' }} />
               <Line type="monotone" dataKey="humidity" stroke="#4f9cf9" strokeWidth={2} dot={false} name="Humidity (%)" />
-              <Line type="monotone" dataKey="temperature" stroke="#f97b4f" strokeWidth={2} dot={false} name="Temperature (°C)" />
+              <Line type="monotone" dataKey="temperature" stroke="#f97b4f" strokeWidth={2} dot={false} name={`Temperature (${tempUnit})`} />
               <Line type="monotone" dataKey="outdoorHumidity" stroke="#4f9cf9" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Outdoor Humidity (%)" connectNulls />
-              <Line type="monotone" dataKey="outdoorTemperature" stroke="#f97b4f" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Outdoor Temp (°C)" connectNulls />
+              <Line type="monotone" dataKey="outdoorTemperature" stroke="#f97b4f" strokeWidth={2} strokeDasharray="5 5" dot={false} name={`Outdoor Temp (${tempUnit})`} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         ) : (
@@ -217,7 +235,7 @@ export default function App() {
                       {r.mac}
                     </td>
                     <td className="px-3.5 py-2.5 border-b border-[#1e1e38] whitespace-nowrap text-[#c0c0e0]">
-                      {r.temperature.toFixed(2)}°C
+                      {fmtTemp(r.temperature, useFahrenheit)}
                     </td>
                     <td className="px-3.5 py-2.5 border-b border-[#1e1e38] whitespace-nowrap text-[#c0c0e0]">
                       {r.humidity.toFixed(2)}%
